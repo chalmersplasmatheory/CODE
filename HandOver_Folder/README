@@ -1,0 +1,36 @@
+In this folder, you will find things relevant to take up the project of rewriting CODE to object oriented.
+All vital parts are implemented and the CODE runs. 
+
+What is left to do is to implement some grid modes for momementum (if necessary)
+and maybe more importantly, implement other time advance schemes than Eueler backwards.
+It is also left to implement xi dependent runaway regions (only change integration when
+runaways are calculated). The functions used are implemented in the help functions but 
+they are not used.
+
+To implement other time advance schemes, a new solver should maybe be written.
+
+More importantly, it is left to benchmark the CODE against both old CODE and actual data
+    The work to benchmark against old CODE has started and results and test scripts can be 
+    found in this folder under TestFunctions.
+
+Somethings are not implemented, and almost all things that are not implemented can be found in 
+the folder FilesForDev.
+    CODE_timeDependent2.m - 
+        contains mostly unimplemented things, 
+        but also some things that are implemented (at the end when the file from which I took all
+        functionionality from reduced in size, I got worse at deleting parts which I implemented).
+        It is from this File I worked and extracted different parts into modules
+
+    GridExtension.m -
+        Contains the parts from the grid extension algorithm.
+
+    PlotandOther.m -
+        90% is plot scripts or help functions for the plotting
+        The other 10% is things I considered unecessary for new
+        CODE, as the check on the output struct and comparison to
+        the input struct when doing a restart
+    
+
+Documenation of the code exists in "head folder"/doc in the form of Sphinx documenation.
+In the doc folder there exists a README file which describes how to access the documenation.
+

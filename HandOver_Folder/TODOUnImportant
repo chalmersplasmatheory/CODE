@@ -1,0 +1,36 @@
+TODOunImportant since 10 June 
+
+Implement gridMode 5
+Implement gridMode 6
+Sol1: introduce a new parameter which is the critical velocity, and then set it from state object (with function call).
+This then initiates the grid with correct value. It creates an exception to how grids are created. Find new way so everything
+follow same streamline? Initiate grid from state?
+Sol2: make MomentumGrid and PhysicalParams point to eachother and update accordingly. Makes the 'spider net' more 'sticky'.
+Sol3: Take the critical EField as input parameter, this is just bad
+
+Fix Reference pointer bug
+Sol1: The reference point to all and save the objects as cells
+Sol2: Copy reference when confilct appears
+
+Fix Distribution -> MomentumGrid bug
+Sol1: Add pointer from MomentumGrid to Distributions, and copy MomentumGrid each time it changes
+Sol2: Remove MomentumGrid from Distribution and add y instead.
+Sol3: It's not a bug
+
+Fix TimeGrid -> PhysicalParams bug
+Sol1: Don't allow change of PhysicalParams to TG
+Sol2: save Phy as cells in TG
+Sol3: Copy TG when conflict appears.
+Sol4: It's not a bug
+
+fix so that bremsmode 1 is in separate class
+
+fix bug if timestep vector changes and takeTimeSteps is invokedV
+ex: dt = 1, tMax = 10, solver.takeTimeSteps(); changes dt to 0.5, tMax to 20. Want to start at t = 10, but will start at
+t = 5 (or 4 or 6, whatever, not 10 as wanted)
+
+add function for instantaenous collision times (but with some threshold so that dt changes only if collsion time changes with some percentage)
+
+In previous CODE, many sanity checks where done to input data.
+If you want to implement sanity checks, there is two files in folder "FilesForDevelopment" namely "PhysParTests" and "GridTests".
+These contain the different checks done on the grid and physical parameters before.

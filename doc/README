@@ -1,0 +1,11 @@
+Here the CODE documentation is contained.
+Go to Sphinx and type "make html" in prompt.
+This will create a folder build in which the folder html is created.
+In the html folder there will be index.html which you can open with firefox.
+This will contain the documentation.
+
+In Sphinx/source the source code for the Sphinx documentation exists
+
+Also the OLD code documentation is contained in OLDCODEUserGuide.pdf
+What is mostly changed is in implemenations.
+All relevant physics are the same, but code is not.

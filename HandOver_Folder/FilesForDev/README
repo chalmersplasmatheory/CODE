@@ -1,0 +1,24 @@
+In this folder, all files I used to yank code from old code lies.
+This means that it is the things not copied to new CODE exists here 
+(although not always true as I got worse at the end to remove things I
+copied over). What it is not true for are some helperfunctions and the
+ChiuHarvey source things. The ChiuHarveySource should be looked over
+some more time as this was hard to understand what it did in the original
+CODE due to massive spread in where it did things.
+
+More specifically the files contain:
+    CODE_timeDependent2.m - 
+        contains mostly unimplemented things, 
+        but also some things that are implemented (at the end when the file from which I took all
+        functionionality from reduced in size, I got worse at deleting parts which I implemented).
+        It is from this File I worked and extracted different parts into modules of new CODE.
+
+    GridExtension.m -
+        Contains the parts from the grid extension algorithm.
+
+    PlotandOther.m -
+        90% is plot scripts or help functions for the plotting
+        The other 10% is things I considered unecessary for new
+        CODE, as the check on the output struct and comparison to
+        the input struct when doing a restart
+    

@@ -1,0 +1,12 @@
+Testfunctions for comparing CODE and new CODE
+
+ComparisionTestScript selects random variables to use for the test, then runs CODE
+and new CODE with these values. Output files with Test_date_iteration.mat if both runs where
+succesfull, ErrorCODE_date_iteration.mat if one of the two crashed and Double_ErrorCODE_date_iteration.mat
+if both crashed. 
+
+e is error caused by CODE and e2 is error caused by new CODE.
+resCODE is result struct from CODE and resCODENew is result object from new CODE.
+
+ManyTests is basically just a for loop for ComparisionTestScript. TestScript is a file
+which is segmented to either check for errors or check if results are the same.

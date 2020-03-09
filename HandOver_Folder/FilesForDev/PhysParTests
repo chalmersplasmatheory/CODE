@@ -1,0 +1,505 @@
+Previous test function for PhysicalParams, saved for future where you could use them in a seperate test class. This will crash initially because properties in PhysicalParams will be removed from the class
+
+        function CheckProperties(this)
+            %Checks that the parameter choices are consistent and
+            %reasonable, and gives values to undefined properties (in some
+            %cases). Prints messages of all invalid settings before
+            %throwing an error. No error = check ok.
+            
+            %First perform all the test (which may print out information),
+            %and then collect the results and see if the parameters all
+            %are ok.
+            this.InitializeTests;
+                        
+            % Check that those parameters which should be integers
+            % below some specific value are legit.
+            propList = {'collisionOperator',...
+                     'bremsMode',... 
+                     'NyInterp',...
+                     'useScreening',...
+                     'useInelastic',...
+                     'useEnergyDependentLnLambdaScreening',...
+                     'sourceMode',...
+                     'fastParticleDefinition',... 
+                     'figureOffset',...
+                     'stepSkip',...
+                     'initialDistribution',...
+                     };
+            propMaxs = [3,4,intmax,...
+                7,2,3,...
+                5,6,intmax,intmax,1];
+            this.AddTestResult(this.IsIntegerLEQ(propList,propMaxs));
+            
+            %Check that those parameters which should be doubles > 0 (and 
+            %possibly smaller than something) are legit
+            propList = {'tailThreshold',...
+                     'relativeSpeedThreshold',...
+                     'absoluteSpeedThreshold',...                     
+                     'FMinForPlot'};
+            propMaxs = [0,0,1,1]; %0 = no upper boundary
+            this.AddTestResult(this.IsNonZeroDoubleLEQ(propList,propMaxs));
+            
+            %%% physical parameter: species %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % more to add here later: nj_Over_n0>=0, timedependence,
+            % Z0NetCharge<=ZAtomicNumber, move test of species from inside
+            % CODE
+            
+            if (this.useScreening || ~isempty(this.species) || this.useInelastic)
+                %test that all information about the species is provided
+                LMax = 200;% This is the number of Legendre modes 
+                % calculated in the data files
+                if this.Nxi > LMax+1
+                    fprintf (['Nxi is too high compared to data saved for screening. \n'...
+                        'Time to implement a solution perhaps? \n'])
+                    this.AddTestResult(0);
+                end
+                
+                % these are the fields that must be there
+                fieldList = {'nj','Z0NetCharge','ZAtomicNumber','times'};
+                
+                %number of species
+                numSpecies = zeros(size(fieldList));
+                numTimes = zeros(size(fieldList));
+                for i = 1:length(fieldList)
+                    if ~isfield(this.species, fieldList{i})
+                        
+                        fprintf ([fieldList{i} ' is missing in species\n'])
+                        this.AddTestResult(0);
+                    else
+                        numSpecies(i) = size(this.species.(fieldList{i}),1);
+                        numTimes(i) = size(this.species.(fieldList{i}),2);
+                    end
+                end
+                
+                %if screening is not turned off due to errors in the previous
+                %check, test that
+                % (i) 'nj','Z0NetCharge','ZAtomicNumber' have the same
+                % number of species
+                % (ii) 'nj' and times have the same number of time steps
+                
+                if (this.useScreening || isfield(this,'species')) && ...
+                        (any(numSpecies~= [numSpecies(1)*[1 1 1] 1]) ||...
+                        any(numTimes~= [numTimes(1) 1 1 numTimes(1)]))
+                    
+                    fprintf ('Number of species and/or times incorrect in some fields.' );
+                    fprintf ([' Correct dimensions:\n'...
+                        'nj:(nspecies,ntimes),\n'...
+                        'ZAtomicNumber and Z0NetCharge:(nspecies,1),\n'...
+                        'times:(1,ntimes).\n'])
+                    this.AddTestResult(0);
+                end
+                
+                %survived all checks - overwrite Z!
+                if (this.useScreening || ~isempty(this.species)|| this.useInelastic)
+                    fprintf(['Z, n and their time vectors are overwritten by the parameters ' ...
+                        'specified in struct species\n'])
+                    
+                    %calculate effective charge and density
+                    % and overwrite Z, n, tn and tZ
+                    this.ScreeningOverwriteZAndn();
+                end
+                
+            end
+            
+            
+            %%% Check physical parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            unspecified = [isempty(this.T),isempty(this.n),isempty(this.Z),isempty(this.E)];
+            scalarParams = [isscalar(this.T),isscalar(this.n),isscalar(this.Z),isscalar(this.E)];
+            if any(unspecified) 
+                %Only some (or none) of the parameters set                
+                fprintf('Some physical parameters are unspecified.\n');
+                this.AddTestResult(0);
+            else                
+                %All parameters set
+                
+                %B must be scalar or empty
+                r = isempty(this.B) || (isscalar(this.B) && all(PhysicalParams.IsPositiveDouble(this.B)));             
+                this.AddTestResult(r);
+                if ~r
+                    fprintf('The value of the property B is invalid.\n');
+                end    
+                
+                %First make sure that the parameters are the correct length
+                if ~all(scalarParams)                    
+                    %Time-varying parameters
+                    %Allow for some sloppiness regarding those parameters that
+                    %are scalar (set the corresponding time vector to the first
+                    %time present in any of the time vectors)); 
+                    %N.B. this indirectly also fixes the same thing with
+                    %species, since it contains at least one scalar and
+                    %overwrites tn & nZ if it is time varying.
+                    tMin = min([min(this.tT),min(this.tn),min(this.tZ),min(this.tE)]);
+                    r = ~isempty(tMin);
+                    this.AddTestResult(r);
+                    if r
+                        if scalarParams(1) && (numel(this.tT)<2)
+                            this.tT = tMin;
+                        end
+                        if scalarParams(2) && (numel(this.tn)<2)
+                            this.tn = tMin;
+                        end
+                        if scalarParams(3) && (numel(this.tZ)<2)
+                            this.tZ = tMin;
+                        end
+                        if scalarParams(4) && (numel(this.tE)<2)
+                            this.tE = tMin;
+                        end
+
+                        %Then check the lengths of the vectors
+                        r1 = (numel(this.T) == numel(this.tT));
+                        r2 = (numel(this.n) == numel(this.tn));
+                        r3 = (numel(this.Z) == numel(this.tZ));
+                        r4 = (numel(this.E) == numel(this.tE));    
+                        r = r1 && r2 && r3 && r4;
+                        this.AddTestResult(r);                
+                        if ~r
+                            fprintf('Parameter vectors must be of the same length as their corresponding time vectors.\n');
+                        end
+                    else
+                        fprintf('Non-scalar physical parameters must have a corresponding time vector.\n');
+                    end
+                end
+                if isempty(this.TRef) || isempty(this.nRef)
+                    this.AddTestResult(0);
+                else
+                    this.AddTestResult(this.IsNonZeroDoubleLEQ({'nRef','TRef'},[0,0]));            
+                end
+                %Then check that the values make sense
+                r1 = all(this.T < 5e4);
+                r2 = all(this.n < 1e40);
+                r3 = all(this.Z>=0); 
+                r4 = all(this.Z<100);                
+                r = r1*r2*r3*r4;
+                this.AddTestResult(r);
+                if r == 0
+                    fprintf('One or more of the parameters T,n and Z are invalid.\n'); 
+                end
+                r = isnumeric(this.E);
+                if r == 0
+                    fprintf('The parameter E is invalid.\n'); 
+                end
+                
+                %Warn if Z<1
+                if this.Z<1
+                    warning('You are using Z<1. CODE is technically only valid for fully ionized plasmas.');
+                end
+                
+                %Print a warning if E/E_D is too large, but don't throw an
+                %error (we don't want to stop GO+CODE runs just because the
+                %field is temporarily too high)
+%                 if all(scalarParams) 
+%                     [~,EED,~] = this.NormalizeEField;
+%                     r = all(EED<0.2);
+%                     if ~r
+%                         warning('The electric field is too strong (E/E_D>0.2).\n'); 
+%                     end        
+%                 end
+                
+                %Check that timevectors are consecutive
+                r1 = issorted(this.tT);
+                r2 = issorted(this.tn);
+                r3 = issorted(this.tZ);
+                r4 = issorted(this.tE);
+                r = r1 && r2 && r3 && r4;
+                this.AddTestResult(r);
+                if ~r
+                    fprintf('The parameter time vectors must contain consecutive entries.\n');  
+                end
+                
+                %Check that timeUnitOfParams is legit
+                switch lower(this.timeUnitOfParams)
+                    case {'normalized','s','ms'}
+                        this.timeUnitOfParams = lower(this.timeUnitOfParams);
+                        r = 1;
+                    otherwise
+                        r = 0;
+                        fprintf('Invalid time unit of the parameter time vectors.\n');
+                end
+                this.AddTestResult(r);
+                                        
+            end
+                        
+            
+            
+            %%% Check collision operator %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%            
+            %Throw warning if the non-relativistc operator is used, but the
+            %temperature is high
+            if this.collisionOperator == 1 && max(this.T) > 10e3
+                warning('You have chosen a non-relativistic collision operator, but the temperature is quite high. Are you sure about this?');
+            end
+            
+            if this.collisionOperator == 3
+                warning('The ad-hoc field-particle operator is experimental, and might not work with your CODE version.'); 
+            end
+            
+            %%% Check Avalanche and fast-particle %%%%%%%%%%%%%%%%%%%%%%%%%
+            % We can't use fast particles for the avalanche source if we don't
+            % calculate the fast particle content
+            r = (this.sourceMode == 2 && ~this.fastParticleDefinition);
+            this.AddTestResult(~r);
+            if r
+                fprintf('Cannot use fast particles for the avalanche source, since the fast particle content is not calculated.\n');
+            end            
+            %An automatically set yCutSource only works with constant parameters
+            if this.sourceMode==5 && ~all(scalarParams)
+                r = this.yCutSource==0;
+                this.AddTestResult(~r);
+                if r
+                    fprintf('Cannot use an adaptive yCutSource with time-dependent parameters. Choose a value for yCutSource.\n') 
+                end
+            end
+                        
+                        
+            %%% Check plotting-related %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %Turn off the source plots if we're not using any avalanche source
+            if this.showAvalancheSourcePlot && ~this.sourceMode
+                this.showAvalancheSourcePlot = 0; 
+            end
+            if this.showSourceMomentsPlot && ~this.sourceMode
+                this.showSourceMomentsPlot = 0;
+            end
+            verNotOk = verLessThan('matlab','8.4');
+            if verNotOk
+                this.showAvalancheSourcePlot = 0;
+                warning('The avalanche source plot is not compatible with this version of Matlab and has been disabled.');
+            end
+            
+            %%% Check output related %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%            
+%             if isempty(this.yMaxForPlot)
+%                 this.yMaxForPlot = this.yMax; 
+%             end
+%             if (this.stepSkip < 5) && ~(any(this.timeStepMode == [2,3]))
+%                 warning('Updating the plot of the distribution evolution too often may slow down the computation. Consider increasing stepSkip.'); 
+%             end
+            
+            %%% Benchmark related %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %Print warnings if benchmarking modes are used 
+            if this.suppressPitchAngleScattering || ...
+               this.initialDistribution || ...
+               (~isempty(this.B) && ~this.useFullSynchOp)
+                warning('CODE is currently run for benchmarking purposes, and the results can not be considered physically relevant.');
+            end            
+            
+            %%% Check misc %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %Check keepTrackOfExternalRunaways   
+            if this.calculateForOnlyPrimaries
+                warning('calculateForOnlyPrimaries has not been properly tested with recent modifications to CODE, and is likely not working as intended.'); 
+            end
+            
+            %Check reduceMemoryConsumption
+%             if any(this.timeStepMode == [2,3])
+%                 this.reduceMemoryConsumption = 0;
+%             end
+            if ~all(scalarParams) && any(strcmpi(this.interpolationMethod,{'nearest','next','previous'}))
+                %There is no guarantee that changes to the time step length
+                %are going to occur simultaneously with changes to the
+                %parameters, so we need to keep the operator in memory to
+                %avoid rebuilding the matrix unnecessarily 
+                this.reduceMemoryConsumption = 0;
+            end
+            
+            %Check interpolationMethod
+            methods = {'linear','nearest','pchip','cubic','v5cubic','next','previous','spline'};
+            this.interpolationMethod = lower(this.interpolationMethod);
+            r = any(strcmp(this.interpolationMethod,methods));
+            this.AddTestResult(r);
+            if ~r
+                fprintf('The chosen interpolation method is not recognized.\n');
+            end
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% add his check to HommoPlasmaSolver ionstead
+            %xi-dependent runaway region doesn't work with Boltzmann-based
+            %sources
+%             if this.runawayRegionMode
+%                 if this.sourceMode
+%                     warning('The avalanche sources do not currently take the xi-dependent runaway region into account, so the result will be inconsistent.'); 
+%                 end
+%                 r = ~(this.sourceMode == 5 || this.bremsMode >= 2);
+%                 this.AddTestResult(r);    
+%                 if ~r
+%                     fprintf('A xi-dependent runaway region cannot currently be used together with a Boltzmann-based operator.\n') 
+%                 end
+%             end
+            
+            %%% Deliver the verdict %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            this.SummarizeTests;
+            
+        end   
+        
+        function out = IsAllScalar(this)
+            %Check whether the physical parameters are all scalar, or if 
+            %time-dependent are specified.
+                out = all([isscalar(this.T),isscalar(this.n),...
+                           isscalar(this.Z),isscalar(this.E)]);
+        end
+        
+        function ScreeningOverwriteZAndn(this)
+            %ScreeningOverwriteZAndn calculates the effective charge accorging to p.34
+            % in Helander
+            nj = this.species.nj;
+            Z0NetCharge = this.species.Z0NetCharge;
+            
+            %new electron density: sum over all species => a new
+            %time-dependent vector
+            this.n = Z0NetCharge' * nj;
+            
+            %calculate effective charge
+            Zeff = (Z0NetCharge'.^2 * nj)./this.n;
+            this.Z = Zeff;
+            
+            if length(this.species.times)>1
+                this.tn = this.species.times;
+                this.tZ = this.species.times;
+            end
+
+        end
+                
+    end
+    
+    methods (Static)
+        function out = IsPositiveInteger(v)
+            %Checks if v is an array of positive integers
+            out = isnumeric(v) .* (v >= 0) .* (~mod(v,1));
+        end   
+        
+        function out = IsStrictlyPositiveDouble(v)
+            %Checks if v is a strictly positive array
+            out = isnumeric(v) .* (v > 0); 
+        end
+        
+        function out = IsPositiveDouble(v)
+            %Checks if v is a positive array
+            out = isnumeric(v) .* (v >= 0); 
+        end
+    end
+    
+    methods (Access = protected)
+         function propGrp = getPropertyGroups(this)
+             if ~isscalar(this)
+                propGrp = getPropertyGroups@matlab.mixin.CustomDisplay(this);
+             else                
+                 % Define a set of groups (with titles) to structure the
+                 % list of methods when displaying the object.
+                 for i = numel(this.propLists):-1:1 %For pre-allocation
+                     propGrp(i) = matlab.mixin.util.PropertyGroup(...
+                                    this.propLists{i},sprintf('\n----- %s: -----',this.propListNames{i}));
+                 end                 
+             end
+
+         end
+    end
+    
+    methods (Access = private)
+        function SetPropertyLists(this)
+            %These are the group names used in displaying the properties
+            this.propListNames = {'Physical','Collision operator',...
+                             'Avalanche source',...
+                             'Plot switches','Output','Benchmark','Misc'};
+
+            %These are the properties in each group
+            this.propLists = cell(1,7);
+            this.propLists{1} = {'T','n','Z','E','B','species','tT','tn','tZ','tE','timeUnitOfParams'};
+            %this.propLists{2} = {'Nxi','Ny','yMax','dt','tMax','TRef','nRef',...
+                              %'timeUnit','timeStepMode','logGridScaling',...
+                              %'logGridSubSteps','logGridMaxStep'};
+            this.propLists{2} = {'collisionOperator','enforceDensityConservation',...
+                              'bremsMode','NyInterp', 'useScreening', 'useInelastic',...
+                              'useEnergyDependentLnLambdaScreening'};
+            this.propLists{3} = {'sourceMode','fastParticleDefinition','tailThreshold',...
+                               'relativeSpeedThreshold',...
+                               'absoluteSpeedThreshold','yCutSource'};
+            this.propLists{4} = {'showMainPlot','showVarPlot','showDistEvolutionPlot',...
+                                 'showRunawayRatePlot',...
+                                 'showSolution','showContourPlots',...
+                                 'showGrids','showGridInterpolationPlot',...
+                                 'showCollOpPartPlot','showSourceTerms',...
+                                 'showMeVPlot','showCurrentsPlot',...
+                                 'showAvalancheSourcePlot','showSourceMomentsPlot'};
+            this.propLists{5} = {'silentMode','nStepsToReturn','figureOffset',...
+                              'yMaxForPlot','FMinForPlot','stepSkip'};        
+            this.propLists{6} = {'suppressPitchAngleScattering','initialDistribution',...
+                              'useFullSynchOp','useEDependentLnLambda',...
+                              'useNonRelativisticCollOp'};
+            this.propLists{7} = {'solveIteratively','calculateForOnlyPrimaries',...
+                        'reduceMemoryConsumption','keepTrackOfExternalRunaways',...
+                        'bypassPropertyCheck','interpolationMethod',...
+                        'runawayRegionMode','nPointsXiInt'}; 
+        end
+        
+        function out = IsIntegerLEQ(this,c,vMax)
+            %Checks whether the values v of all properties whose names are 
+            %listed in the cell array c satisfy 0<=v(i)<=vMax(i) and  
+            %that all v(i) are integers.
+            if ischar(c) %Only one entry
+                c = {c};
+            end            
+            v = zeros(size(vMax));
+            for i = 1:numel(c) 
+                val = this.(c{i});
+                if isempty(val) || ~isscalar(val)                       
+                    v(i) = -1;
+                else
+                    v(i) =  val;
+                end
+            end
+            areInteger = PhysicalParams.IsPositiveInteger(v);
+            areLEQ = v <= vMax;
+            result = areInteger .* areLEQ;
+            out = all(result);
+            if ~out
+                fails = find(~result);
+                for i = fails
+                    fprintf('The value of the property %s is invalid.\n',c{i});
+                end                   
+            end            
+        end
+        
+        function out = IsNonZeroDoubleLEQ(this,c,vMax)
+            %Checks whether the values v of all properties whose names are 
+            %listed in the cell array c satisfy 0<v(i)<=vMax(i). If 
+            %vMax(i)==0, only positivity is tested. 
+            
+            if ischar(c) %Only one entry
+                c = {c};
+            end            
+            v = zeros(size(vMax));
+            for i = 1:numel(c) 
+                val = this.(c{i});
+                if isempty(val) || ~isscalar(val)                       
+                    v(i) = -1;
+                else
+                    v(i) =  val;
+                end
+            end
+            
+            arePositive = PhysicalParams.IsStrictlyPositiveDouble(v);
+            areLEQ = ones(size(vMax));
+            areLEQ(vMax>0) = v(vMax>0) <= vMax(vMax>0); %Those parameters which have an upper bound should be below it
+            result = arePositive .* areLEQ;
+            out = all(result);
+            if ~out
+                fails = find(~result);
+                for i = fails
+                    fprintf('The value of the property %s is invalid.\n',c{i});
+                end                           
+            end
+        end
+        
+        function InitializeTests(this)
+            this.tests = [];
+            this.testId = 1;
+        end
+                
+        function AddTestResult(this,val)
+            if isempty(val)
+                val = 0;
+            end
+            this.tests(this.testId) = val;
+            this.testId = this.testId+1;
+        end
+    
+        function SummarizeTests(this)           
+           if any(~this.tests)
+               %fprintf('Performed %d tests.\n',numel(this.tests));
+               error('Invalid parameters.');
+           end
+        end

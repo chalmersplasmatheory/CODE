@@ -1,0 +1,251 @@
+Previous test function for PhysicalParams, saved for future where you could use them in a seperate test class. Note that everything that
+was checked previously might not be checked if you only use this fcn since additional properties might be moved to Grid later.
+
+    
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%                                  %%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%        check properties          %%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%                                  %%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%                                  %%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    methods
+        function CheckProperties(this)
+            %Checks that the parameter choices are consistent and
+            %reasonable, and gives values to undefined properties (in some
+            %cases). Prints messages of all invalid settings before
+            %throwing an error. No error = check ok.
+            propList = {'timeStepMode',...
+                     'yGridMode',... 
+                     'gridCheckSkip',...
+                     'yMaxBoundaryCondition',...
+                     'timeAdvanceMethod',...
+                     'runawayRegionMode',...
+                     'nPointsXiInt'};
+            propMaxs = [3,6,intmax,4,2,1,intmax];
+            this.AddTestResult(this.IsIntegerLEQ(propList,propMaxs));
+            %Check that the time unit is legit
+            switch lower(this.timeUnit)
+                case {'normalized','s','ms'}
+                    this.timeUnit = lower(this.timeUnit);
+                    r = 1;
+                otherwise
+                    r = 0;
+                    fprintf('Invalid time unit.\n');
+            end
+            this.AddTestResult(r);
+            
+            %Check that tMax > dt if they are the same unit (otherwise we
+            %can not say anything)
+            if this.timeStepMode ~= 1
+               r = (this.tMax >= this.dt);
+               this.AddTestResult(r);
+               if ~r
+                   fprintf('No time steps will be taken.\n'); 
+               end
+            end
+            
+                        %%% Check grid %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %Make sure gridParameter is set when grid 4 is used
+            if this.yGridMode == 4 || this.yGridMode == 5
+                this.AddTestResult(this.IsNonZeroDoubleLEQ('gridParameter',0));
+            end
+            if this.yGridMode == 5
+                this.AddTestResult(this.IsNonZeroDoubleLEQ('gridStepWidth',1));
+                this.AddTestResult(this.IsNonZeroDoubleLEQ('gridStepPosition',0));
+            end
+            %Check parameters related to grid extension
+            if this.useAutomaticGridExtension 
+                r1 = any(this.yGridMode == [0,4]);
+                r2 = ~(this.gridIncreaseFactor<0 || this.gridCheckSkip < 1);
+                this.AddTestResult(r1*r2);
+                if ~r1
+                    fprintf('Grid extension requires yGridMode 0 or 4.\n');
+                end
+                if ~r2 
+                    fprintf('Grid extension can not be used due to the settings of gridIncreaseFactor or gridCheckSkip.');                    
+                end       
+                
+                %Check that gridCheckSkip, gridIncreaseFactor, usefulThreshold  
+                %and extensionXISlope are reasonable
+                if this.gridCheckSkip > 30
+                    warning('Many steps are taken between checks for grid extension. This might mean that the grid cannot expand fast enough.'); 
+                end
+                if this.gridIncreaseFactor < 0.05
+                    warning('The grid is increased very little in each extension. This might mean that it needs to be extended often, or that it cannot expand fast enough.'); 
+                end
+                if this.gridIncreaseFactor > 1
+                    warning('The grid is increased a lot in each extension. This might lead to unnecessary computational overhead.'); 
+                end
+                if this.usefulThreshold > 1e-7
+                    warning('A very large tail is needed to trigger a grid extension. This might lead to loss of information.'); 
+                end
+                if this.extensionXiSlope > 0.1
+                    warning('Many Legendre modes will be added in each grid extension. This might be unnecessary and computationally heavy.'); 
+                end
+                if this.extensionXiSlope < 0.001
+                    warning('Very few Legendre modes will be added in each grid extension. This might give insufficient resolution.'); 
+                end
+            end
+            %Check that the dissipation parameters are set when boundary
+            %condition 4 is used
+            if this.yMaxBoundaryCondition == 4
+                list = {'artificialDissipationStrength',...
+                        'artificialDissipationWidth'};                
+                this.AddTestResult(this.IsNonZeroDoubleLEQ(list,[0,0]));                
+            end                 
+            %externalBoundaryMeV can be empty or a positive scalar.
+            if isempty(this.externalBoundaryMeV)
+                this.AddTestResult(1); 
+            else
+                this.AddTestResult(this.IsNonZeroDoubleLEQ('externalBoundaryMeV',0));
+                if this.externalBoundaryMeV < 0.511 %Throw warning if the boundary is chosen low
+                    warning('You have chosen a value for externalBoundaryMeV where the particles are not fully relativistic. Are you sure about this?');
+                end
+            end
+            %We can't use Boltzmann-based operators together with grid extension 
+            %beacuse it's too heavy to repeatedly calculate the matrix
+%             if this.useAutomaticGridExtension
+%                 if this.bremsMode >= 2 || this.sourceMode == 5
+%                     warning('Turning off automatic grid extension since it is not supported when using Boltzmann-based operators.');
+%                     this.useAutomaticGridExtension = false;
+%                 end
+%             end
+            
+            %%% Check Time advance %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           
+            %We can not use tAdvMeth = 2 with time-dependent parameters or the avalanche source
+%             r = (this.timeAdvanceMethod == 2 && (this.sourceMode || ~all(scalarParams)));
+%             this.AddTestResult(~r);
+%             if r
+%                 fprintf('The trapezoid rule can not be used with the chosen settings. Choose a different timeAdvanceMethod.\n');
+%             end
+            
+            %%% Check resolution parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            r = any([isempty(this.Nxi),isempty(this.Ny),isempty(this.yMax),...
+                                            isempty(this.dt),isempty(this.tMax)]);
+            this.AddTestResult(~r);                            
+            if r
+                fprintf('Some resolution parameters are unspecified.\n');
+            else
+                %Check if the parameters are legit
+                this.AddTestResult(this.IsIntegerLEQ({'Nxi','Ny'},[intmax,intmax]));
+                this.AddTestResult(this.IsNonZeroDoubleLEQ({'yMax','dt','tMax'},[0,0,0]));
+            end            
+            % Throw warnings for low or high Nxi and Ny 
+            if this.Nxi<10
+                warning('You are using very few Legendre modes. Are you sure about this?'); 
+            end
+            if this.Nxi>250
+                warning('You are using a large number of Legendre modes, which may make the computation very heavy. Are you sure about this?'); 
+            end
+            if this.Ny<30
+                warning('You are using very few grid points. Are you sure about this?'); 
+            end
+            if this.Ny>3000
+                warning('You are using a large number of grid points, which may make the computation very heavy. Are you sure about this?'); 
+            end
+            
+            this.SummarizeTests()
+        end
+        function InitializeTests(this)
+            this.tests = [];
+            this.testId = 1;
+        end
+                
+        function AddTestResult(this,val)
+            if isempty(val)
+                val = 0;
+            end
+            this.tests(this.testId) = val;
+            this.testId = this.testId+1;
+        end
+    
+        function SummarizeTests(this)           
+           if any(~this.tests)
+               %fprintf('Performed %d tests.\n',numel(this.tests));
+               error('Invalid parameters.');
+           end
+        end
+    end
+    
+    
+    methods (Static)
+        function out = IsPositiveInteger(v)
+            %Checks if v is an array of positive integers
+            out = isnumeric(v) .* (v >= 0) .* (~mod(v,1));
+        end   
+        
+        function out = IsStrictlyPositiveDouble(v)
+            %Checks if v is a strictly positive array
+            out = isnumeric(v) .* (v > 0); 
+        end
+        
+        function out = IsPositiveDouble(v)
+            %Checks if v is a positive array
+            out = isnumeric(v) .* (v >= 0); 
+        end
+    end
+    
+    %methods for CheckProperties maybe redundant
+    
+    methods (Access = private)
+                
+        function out = IsIntegerLEQ(this,c,vMax)
+            %Checks whether the values v of all properties whose names are 
+            %listed in the cell array c satisfy 0<=v(i)<=vMax(i) and  
+            %that all v(i) are integers.
+            if ischar(c) %Only one entry
+                c = {c};
+            end            
+            v = zeros(size(vMax));
+            for i = 1:numel(c) 
+                val = this.(c{i});
+                if isempty(val) || ~isscalar(val)                       
+                    v(i) = -1;
+                else
+                    v(i) =  val;
+                end
+            end
+            areInteger = Grid.IsPositiveInteger(v);
+            areLEQ = v <= vMax;
+            result = areInteger .* areLEQ;
+            out = all(result);
+            if ~out
+                fails = find(~result);
+                for i = fails
+                    fprintf('The value of the property %s is invalid.\n',c{i});
+                end                   
+            end            
+        end
+        
+        function out = IsNonZeroDoubleLEQ(this,c,vMax)
+            %Checks whether the values v of all properties whose names are 
+            %listed in the cell array c satisfy 0<v(i)<=vMax(i). If 
+            %vMax(i)==0, only positivity is tested. 
+            
+            if ischar(c) %Only one entry
+                c = {c};
+            end            
+            v = zeros(size(vMax));
+            for i = 1:numel(c) 
+                val = this.(c{i});
+                if isempty(val) || ~isscalar(val)                       
+                    v(i) = -1;
+                else
+                    v(i) =  val;
+                end
+            end
+            
+            arePositive = Grid.IsStrictlyPositiveDouble(v);
+            areLEQ = ones(size(vMax));
+            areLEQ(vMax>0) = v(vMax>0) <= vMax(vMax>0); %Those parameters which have an upper bound should be below it
+            result = arePositive .* areLEQ;
+            out = all(result);
+            if ~out
+                fails = find(~result);
+                for i = fails
+                    fprintf('The value of the property %s is invalid.\n',c{i});
+                end                           
+            end
+        end
+    end
+end

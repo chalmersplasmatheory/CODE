@@ -1,0 +1,14 @@
+no Sources, no density conservation, constant dt, random y gridmode:
+    no B field & Efield=0 
+        CollOp:
+            0,1,2,3,4 (all give exact 0 deviation from each other)
+    no B field & Efield != 0
+        CollOp:0,1,2,3,4 (all give errors but are on the edge of the y grid)
+    sourceMode 1,2,3,4 is ok
+    yMax BC 1,2,3,4 is ok
+
+synchrotronLoss collOp 0,2 no enforceDensity
+
+sourceMode 5
+
+enforceDensity
