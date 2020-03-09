@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/code/badge/?version=latest)](https://code.readthedocs.io/en/latest/?badge=latest)
+
 # CODE -- Collisional Distributions of Electrons v2
 This repository contains the new, object-oriented implementation of the 0D-2P
 kinetic solver CODE (Collision Distributions of Electrons). The original solver
