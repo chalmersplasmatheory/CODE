@@ -46,7 +46,7 @@ If :math:`\gamma+1-\gamma_m< \gamma_m`, the integral is set to be zero.
 
 
 [m,xiGrid] = GenerateCumIntMat(Nxi,nPoints)
-------------------------
+--------------------------------------------
 
 .. function:: [m,xiGrid] = GenerateCumIntMat(Nxi,nPoints)
 
