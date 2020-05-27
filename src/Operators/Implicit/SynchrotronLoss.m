@@ -40,13 +40,14 @@ classdef SynchrotronLoss < ImplicitOperator
             x = this.state.momentumGrid.x;
             %
             if this.nueeBarUsed == nueeBar && ...
-                    this.BHatUsed == BHat && ...
+                    isequal(this.BHatUsed, BHat) && ... % Ugly hack, sometimes BHat is empty, so [] == [] is the same as [], which is treated as false.
                     this.NxiUsed == Nxi && ...
                     isequal(this.yUsed,y) && ...
                     this.deltaRefUsed == deltaRef && ...
                     isequal(this.gammaUsed, gamma) && ...
                     this.yMaxBCUsed == this.state.momentumGrid.yMaxBoundaryCondition &&...
                     this.useFullSynchOpUsed == this.eqSettings.useFullSynchOp
+                disp('not here')
                     matrixHasChanged = 0;
                 return
             end
@@ -123,10 +124,12 @@ classdef SynchrotronLoss < ImplicitOperator
                 this.gammaUsed = gamma;
                 this.yMaxBCUsed = this.state.momentumGrid.yMaxBoundaryCondition;
                 this.useFullSynchOpUsed = this.eqSettings.useFullSynchOp;
+                
+                matrixHasChanged = 1;
             else
                 this.operatorMatrix = sparse(matrixSize,matrixSize);
+                matrixHasChanged = 0;
             end
-            matrixHasChanged = 1;
         end
 
     end

@@ -233,7 +233,7 @@ classdef CollisionOperator < ImplicitOperator
                 %calculate energy dependence of Coulomb logarithm
                 if useEnergyDependentLnLambdaScreening == 1 || this.eqSettings.sourceMode==5
                     [  lnLambdaeeHat,dlnLambdaeeHatdp,~,boltzCorrectionlnLambdaeeHat, boltzCorrectiondlnLambdaeeHatdp] = ...
-                        this.CalculateEnergyDependentlnLambda( p, y, lnLambda);
+                        this.CalculateEnergyDependentlnLambda( p, y, lnLambda, delta);
 
                 else
                     lnLambdaeeHat = ones(size(y));

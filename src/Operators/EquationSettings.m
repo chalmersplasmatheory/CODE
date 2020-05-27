@@ -149,7 +149,7 @@ classdef EquationSettings <handle
         useInelastic = 0;
         useEnergyDependentLnLambdaScreening = 0;
         bremsMode = 0;
-        useFullSynchOp = 1; 
+        useFullSynchOp = 1;
         NyInterp = 1000;
         %Operators and state
         operators = cell(6,1);
@@ -319,8 +319,8 @@ classdef EquationSettings <handle
 			this.nPointsXiInt = eqSettings.nPointsXiInt; 
 			this.enforceDensityConservation = eqSettings.enforceDensityConservation; 
 			this.useScreening = eqSettings.useScreening; 
-			this.useInelastic = eqSettings.useInelastic; 
-			this.useEnergyDependentLnLambdaScreening = eqSettings.useEnergyDependentLnLambdaScreening; 
+			this.useInelastic = eqSettings.useInelastic;
+			this.useEnergyDependentLnLambdaScreening = eqSettings.useEnergyDependentLnLambdaScreening;
 			this.bremsMode = eqSettings.bremsMode;
             if this.state == eqSettings.state
                 for i = 1:length(eqSettings.operators)

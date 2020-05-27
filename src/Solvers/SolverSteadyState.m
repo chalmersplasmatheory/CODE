@@ -3,18 +3,16 @@ classdef SolverSteadyState
     %where the source S is on the form S = a exp(-y^2)
 
     properties
-        plasma
+        state
         eqSettings
-        grid
         operator
     end
 
     methods
-        function this = SolverSteadyState(plasma, grid, eqSettings)
+        function this = SolverSteadyState(state, eqSettings)
             %SOLVERSTEADYSTATE Construct an instance of this class
             %   Detailed explanation goes here
-            this.plasma = plasma;
-            this.grid = grid;
+            this.state = state;
             this.eqSettings = eqSettings;
         end
 
@@ -42,50 +40,46 @@ classdef SolverSteadyState
         
         
         function [F, a] = steadyState2(this)
-            this.grid.interpolatePhysicalParams();
-            this.plasma.timeNormalize();
-            this.plasma.calcDepParams();
-            this.grid.initializeGrid();
 
             % Init operators
-            d = DiagonalPlusBoundaryCondition(this.grid,this.plasma,this.eqSettings);
+            d = DiagonalPlusBoundaryCondition(this.state,this.eqSettings);
             d.generateOperatorMatrix(1);
-            co = CollisionOperator(this.grid,this.plasma,this.eqSettings);
+            co = CollisionOperator(this.state,this.eqSettings);
             co.generateOperatorMatrix(1);
-            s = SynchrotronLoss(this.grid,this.plasma,this.eqSettings);
+            s = SynchrotronLoss(this.state,this.eqSettings);
             s.generateOperatorMatrix(1);
-            ef = EfieldOperator(this.grid,this.plasma,this.eqSettings);
+            ef = EfieldOperator(this.state,this.eqSettings);
             ef.generateOperatorMatrix(1);
             
 
 
             M = (s.operatorMatrix+co.operatorMatrix+ef.operatorMatrix);
 
-            rhs = zeros(this.grid.Ny * this.grid.Nxi, 1);
-            rhs(1:this.grid.Ny) = exp ( -this.grid.y .^ 2 );
+            rhs = zeros(this.state.momentumGrid.Ny * this.state.momentumGrid.Nxi, 1);
+            rhs(1:this.state.momentumGrid.Ny) = exp ( -this.state.momentumGrid.y .^ 2 );
 
             % Dirichlet condition.
             rhs(1) = 0;
-            M(1, 1:5) = -this.grid.ddy(1, 1:5);
+            M(1, 1:5) = -this.state.momentumGrid.ddy(1, 1:5);
 
             % Neumann at y = 0
-            for L = 1:(this.grid.Nxi - 1)
-                M(L * this.grid.Ny + 1, L * this.grid.Ny + 1) = 1;
+            for L = 1:(this.state.momentumGrid.Nxi - 1)
+                M(L * this.state.momentumGrid.Ny + 1, L * this.state.momentumGrid.Ny + 1) = 1;
             end
 
             % Neumann at y = y_max (I don't really like this).
-            for L = 0:(this.grid.Nxi - 1)
-                M(L * this.grid.Ny + this.grid.Ny, L * this.grid.Ny + this.grid.Ny) = 1;
+            for L = 0:(this.state.momentumGrid.Nxi - 1)
+                M(L * this.state.momentumGrid.Ny + this.state.momentumGrid.Ny, L * this.state.momentumGrid.Ny + this.state.momentumGrid.Ny) = 1;
             end
 
             result = -(M \ rhs);
 
             if this.eqSettings.collisionOperator == 2
                 %minus sign from that there is a minus in front of -M \rhs
-                result(1:this.grid.Ny) = result(1:this.grid.Ny) - addHeat_ParticleSources(result, this.grid.Ny,this.grid.y2,this.grid.gamma,this.grid.yWeights, this.plasma.nBars(1), this.plasma.veBars3(1), this.plasma.veBars2(1), this.plasma.deltaRef^2);
+                result(1:this.state.momentumGrid.Ny) = result(1:this.state.momentumGrid.Ny) - addHeat_ParticleSources(result, this.state.momentumGrid.Ny,this.state.momentumGrid.y2,this.state.momentumGrid.gamma,this.state.momentumGrid.yWeights, this.state.physicalParams.nBars(1), this.state.physicalParams.veBars3(1), this.state.physicalParams.veBars2(1), this.state.physicalParams.deltaRef^2);
             end
             F = result / result(1);
-            a = result(1);
+            a = -1 / result(1);
         end
         
     end
