@@ -181,7 +181,7 @@ classdef SmartLUSolver < Solver
             this.timeIndex = 1;
         end
         
-        function setftoMaxmellian(this)
+        function setftoMaxwellian(this)
            maxDis = zeros(this.state.momentumGrid.matrixSize,1);
            maxDis(1:this.state.momentumGrid.Ny) = this.state.physicalParams.nBars(this.timeIndex)...
                                         /this.state.physicalParams.veBars3(this.timeIndex)* ...

@@ -93,7 +93,7 @@ es.setbremsMode(0);
 % invoking setftoMaxwellian();
 % How many distributions are saved is altered by the nStepsToSave variable and is set with setnStepsToSave;
 solver = SmartLUSolver(S,es);
-solver.setftoMaxmellian();
+solver.setftoMaxwellian();
 solver.setnSaves(50);
 output = solver.takeTimeSteps();
 
