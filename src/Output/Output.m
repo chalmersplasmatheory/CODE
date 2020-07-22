@@ -61,8 +61,8 @@ classdef Output < handle
         end
 
         function save(this, timeIndex, state, f, fbefore)
-            %% TODO controll these calulations
-            %{
+            % TODO controll these calulations
+            
             restMassEnergy = 0.510998928; %MeV
             eG = 4.80320425e-10;
             cG = 2.9979e10; %Gaussian units
@@ -106,8 +106,8 @@ classdef Output < handle
                 this.dJdtSI{end+1} = 0;
                 this.dJ_rundtSI{end+1} = 0;
             end
-            %}
-            %%
+            
+            
             this.T{end+1} = state.physicalParams.T(timeIndex);
             this.n{end+1} = state.physicalParams.n(timeIndex);
             this.Z{end+1} = state.physicalParams.Z(timeIndex);
